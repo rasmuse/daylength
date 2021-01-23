@@ -64,21 +64,75 @@ def calc_day_hours(lon_degrees, lat_degrees, date):
 
 
 year = 2021
-lon_degrees = 12
-lat_degrees = 59
-
-days = range(1, 365 + 1 + 1)
-day_hours = [
-    calc_day_hours(lon_degrees, lat_degrees, year, day_of_year)
-    for day_of_year in days
+lon = 12
+latitudes = [
+    52,
+    58,
+    64,
 ]
 
-minutes_change = np.diff(np.array(day_hours) * 60)
+latitude_colors = dict(zip(latitudes, mpl.cm.tab10.colors))
+latitude_labels = {
+    52: "Potsdam",
+    58: "Gothenburg",
+    64: "Umeå",
+}
 
-days = days[:-1]
-day_hours = day_hours[:-1]
+dates = [
+    datetime.date(year, 1, 1) + datetime.timedelta(days_elapsed)
+    for days_elapsed in range(366)
+]
 
-fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
-axs[0].plot(days, day_hours)
-axs[1].plot(days, minutes_change)
-fig.savefig("fig.png")
+day_hours = pd.DataFrame(
+    index=dates,
+    data={
+        lat: [calc_day_hours(lon, lat, date) for date in dates]
+        for lat in latitudes
+    },
+)
+
+minutes_change = day_hours.diff() * 60
+mark_days = [datetime.date(year, 1, 26)]
+
+
+def make_fig(latitudes):
+    fig, axs = plt.subplots(
+        nrows=2,
+        ncols=1,
+        sharex=True,
+        figsize=(6, 6),
+    )
+    for latitude in latitudes:
+        axs[0].plot(
+            day_hours[latitude],
+            label=f"{latitude}° N ({latitude_labels[latitude]})",
+            color=latitude_colors[latitude],
+        )
+        axs[1].plot(
+            dates,
+            minutes_change[latitude],
+            label=f"{latitude}° N ({latitude_labels[latitude]})",
+            color=latitude_colors[latitude],
+        )
+    axs[0].set_title("Day length [hours]")
+    axs[1].set_title("Day length change rate [minutes/day]")
+    axs[0].set_ylim(0, 24)
+    axs[1].set_ylim(-7, 7)
+
+    axs[0].legend(bbox_to_anchor=(1, 1), loc="upper right")
+
+    for ax in axs:
+        ax.grid(True)
+        ax.axvline(mark_days, color="k")
+
+    axs[-1].set_xticks(
+        [datetime.date(year, month, 1) for month in range(1, 12 + 1)]
+    )
+    axs[-1].xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+
+    fig.savefig(f"fig-{'-'.join(map(str, sorted(latitudes)))}.png", dpi=300)
+
+
+make_fig([58])
+make_fig([58, 52])
+make_fig([64, 58, 52])
